@@ -1,0 +1,7 @@
+,RMSE,MAE,Sesgo,Mejora RMSE vs promedio histórico,Mejora MAE vs promedio histórico
+XGBoost v1,2.3696,1.3827,0.0599,0.0741,0.045
+XGBoost + calendario,2.3762,1.3791,-0.0049,0.0715,0.0475
+XGBoost + clima,2.383,1.3784,-0.0298,0.0689,0.048
+XGBoost v2 (calendario + clima),2.3929,1.3784,-0.056,0.065,0.048
+Media 4 semanas,2.4938,1.4493,-0.0281,0.0256,-0.001
+Promedio histórico,2.5592,1.4479,0.1713,0.0,0.0

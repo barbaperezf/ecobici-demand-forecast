@@ -10,6 +10,12 @@ Pasos (los usa notebooks/02_modelo.ipynb):
     6. buscar_hiperparametros() / entrenar_xgb()  XGBoost global
     7. metricas()          RMSE y MAE
 
+Versión 2 (notebooks/03_modelo_v2.ipynb): agrega calendario (vacaciones SEP y
+festivos) con agregar_calendario() y clima por hora con agregar_clima().
+
+Horizonte de 1 día y validación en ventanas (notebooks/04_horizonte_y_ventanas.ipynb):
+agregar_rezagos_1d() y ventanas_por_fechas().
+
 Los ids de estación son el `ce` de los viajes (incluye pares como "271-272").
 """
 
@@ -26,6 +32,17 @@ FEATURES_REZAGO = ["lag_7d", "media_4sem", "nivel_semana"]
 FEATURES_NUM = ["hora", "dia_semana", "es_fin_de_semana", "lat", "lon", "capacidad"] + FEATURES_REZAGO
 FEATURES = FEATURES_CAT + FEATURES_NUM
 TARGET = "salidas"
+
+# Versión 2: calendario escolar SEP 2025-2026 y clima
+VACACIONES_SEP = [("2026-03-30", "2026-04-10"), ("2026-07-16", "2026-08-30")]   # Semana Santa y verano
+FESTIVOS = ["2026-03-16", "2026-04-02", "2026-04-03", "2026-05-01"]   # Benito Juárez, Jueves y Viernes Santo, 1 de mayo
+FEATURES_CALENDARIO = ["vacaciones_sep", "es_festivo"]
+FEATURES_CLIMA = ["lluvia_mm", "temperatura"]
+FEATURES_V2 = FEATURES + FEATURES_CALENDARIO + FEATURES_CLIMA
+
+# Horizonte de 1 día: además de los rezagos de 7 días o más, lo que pasó ayer
+FEATURES_REZAGO_1D = ["lag_1d", "nivel_ayer"]
+FEATURES_1D = FEATURES + FEATURES_REZAGO_1D
 
 
 # ---------------------------------------------------------------- datos
@@ -117,6 +134,96 @@ def agregar_rezagos(tabla: pd.DataFrame) -> pd.DataFrame:
     return tabla.reset_index(drop=True)
 
 
+def agregar_calendario(tabla: pd.DataFrame) -> pd.DataFrame:
+    """Marca los días de vacaciones escolares SEP (ciclo 2025-2026) y los festivos oficiales."""
+    vac = np.zeros(len(tabla), dtype="int8")
+    for ini, fin in VACACIONES_SEP:
+        vac |= tabla["fecha"].between(ini, fin).to_numpy().astype("int8")
+    tabla["vacaciones_sep"] = vac
+    tabla["es_festivo"] = tabla["fecha"].isin(pd.to_datetime(FESTIVOS)).astype("int8")
+    return tabla
+
+
+def descargar_clima(inicio: str, fin: str, lat: float = 19.42, lon: float = -99.16) -> pd.DataFrame:
+    """Lluvia (mm) y temperatura (°C) por hora en la zona de Ecobici, del histórico de Open-Meteo.
+
+    Se guarda en data/processed/clima_cdmx_hora.csv y se reutiliza si ya existe.
+    Las horas vienen en hora local de la CDMX, igual que los viajes.
+    """
+    ruta = os.path.join(PROCESSED_DIR, "clima_cdmx_hora.csv")
+    if os.path.exists(ruta):
+        return pd.read_csv(ruta, parse_dates=["fecha"])
+    import requests
+
+    r = requests.get(
+        "https://archive-api.open-meteo.com/v1/archive",
+        params={
+            "latitude": lat, "longitude": lon, "start_date": inicio, "end_date": fin,
+            "hourly": "precipitation,temperature_2m", "timezone": "America/Mexico_City",
+        },
+        timeout=60,
+    )
+    r.raise_for_status()
+    h = r.json()["hourly"]
+    dt = pd.to_datetime(h["time"])
+    clima = pd.DataFrame({
+        "fecha": dt.normalize(),
+        "hora": dt.hour.astype("int8"),
+        "lluvia_mm": h["precipitation"],
+        "temperatura": h["temperature_2m"],
+    })
+    clima.to_csv(ruta, index=False)
+    return clima
+
+
+def agregar_clima(tabla: pd.DataFrame, clima: pd.DataFrame) -> pd.DataFrame:
+    """Une el clima observado de esa fecha y hora (el mismo para todas las estaciones).
+
+    Es el clima real, no un pronóstico: en uso real habría que alimentarlo con el pronóstico.
+    """
+    c = clima.assign(hora=clima["hora"].astype("int8"))
+    tabla = tabla.merge(c, on=["fecha", "hora"], how="left")
+    for col in FEATURES_CLIMA:
+        tabla[col] = tabla[col].astype("float32")
+    return tabla
+
+
+def agregar_rezagos_1d(tabla: pd.DataFrame) -> pd.DataFrame:
+    """Rezagos de 1 día, para predecir el día siguiente (por ejemplo, al cierre de cada día).
+
+    - lag_1d:     salidas de la misma estación y hora, el día anterior
+    - nivel_ayer: salidas por hora de la estación en todo el día anterior
+    Si la estación no tiene registro ayer, quedan vacías (XGBoost las trata como faltantes).
+    """
+    base = tabla[["estacion", "fecha", "hora", TARGET]]
+    sh = base.assign(fecha=base["fecha"] + pd.Timedelta(days=1)).rename(columns={TARGET: "lag_1d"})
+    tabla = tabla.merge(sh, on=["estacion", "fecha", "hora"], how="left")
+
+    diario = base.groupby(["estacion", "fecha"], observed=True)[TARGET].mean().rename("nivel_ayer").reset_index()
+    diario["fecha"] = diario["fecha"] + pd.Timedelta(days=1)
+    tabla = tabla.merge(diario, on=["estacion", "fecha"], how="left")
+    for c in FEATURES_REZAGO_1D:
+        tabla[c] = tabla[c].astype("float32")
+    return tabla
+
+
+def ventanas_por_fechas(tabla: pd.DataFrame, n: int = 3, dias: int = 35):
+    """Validación en ventanas (walk-forward): n periodos de prueba consecutivos de `dias` días al final.
+
+    Cada ventana entrena con todos los días anteriores a ella. La última ventana es la
+    partición original (últimos 35 días = ~20 %). Regresa una lista de (train, test, inicio, fin).
+    """
+    fechas = np.sort(tabla["fecha"].unique())
+    res = []
+    for k in range(n, 0, -1):
+        ini = fechas[len(fechas) - k * dias]
+        fin = fechas[len(fechas) - (k - 1) * dias - 1]
+        train = tabla[tabla["fecha"] < ini]
+        test = tabla[(tabla["fecha"] >= ini) & (tabla["fecha"] <= fin)]
+        res.append((train, test, pd.Timestamp(ini), pd.Timestamp(fin)))
+    return res
+
+
 def split_por_fechas(tabla: pd.DataFrame, frac_train: float = 0.8):
     """Entrena con los primeros días y prueba con los últimos (sin mezclar el tiempo)."""
     fechas = np.sort(tabla["fecha"].unique())
@@ -206,7 +313,9 @@ def split_validacion(train: pd.DataFrame, frac: float = 0.8):
     return fit, val
 
 
-def buscar_hiperparametros(train: pd.DataFrame, n_iter: int = 12, semilla: int = 42) -> pd.DataFrame:
+def buscar_hiperparametros(
+    train: pd.DataFrame, n_iter: int = 12, semilla: int = 42, features=FEATURES
+) -> pd.DataFrame:
     """Random search: prueba n_iter combinaciones y las evalúa en los últimos días de train.
 
     Regresa una tabla ordenada por RMSE de validación, con el número de árboles
@@ -219,21 +328,31 @@ def buscar_hiperparametros(train: pd.DataFrame, n_iter: int = 12, semilla: int =
     resultados = []
     for i, params in enumerate(ParameterSampler(ESPACIO_BUSQUEDA, n_iter=n_iter, random_state=semilla)):
         modelo = xgb.XGBRegressor(**{**PARAM_BASE, **params})
-        modelo.fit(fit[FEATURES], fit[TARGET], eval_set=[(val[FEATURES], val[TARGET])], verbose=False)
-        pred = np.clip(modelo.predict(val[FEATURES]), 0, None)
+        modelo.fit(fit[features], fit[TARGET], eval_set=[(val[features], val[TARGET])], verbose=False)
+        pred = np.clip(modelo.predict(val[features]), 0, None)
         m = metricas(val[TARGET], pred)
         resultados.append({**params, "mejor_iteracion": int(modelo.best_iteration) + 1, **m})
         print(f"[{i + 1}/{n_iter}] RMSE val={m['RMSE']:.3f}  MAE val={m['MAE']:.3f}  {params}")
     return pd.DataFrame(resultados).sort_values("RMSE").reset_index(drop=True)
 
 
-def entrenar_xgb(train: pd.DataFrame, params: dict, n_arboles: int):
+def elegir_arboles(train: pd.DataFrame, params: dict, features=FEATURES) -> int:
+    """Número de árboles por early stopping en los últimos días de train, con params fijos."""
+    import xgboost as xgb
+
+    fit, val = split_validacion(train)
+    modelo = xgb.XGBRegressor(**{**PARAM_BASE, **params})
+    modelo.fit(fit[features], fit[TARGET], eval_set=[(val[features], val[TARGET])], verbose=False)
+    return int(modelo.best_iteration) + 1
+
+
+def entrenar_xgb(train: pd.DataFrame, params: dict, n_arboles: int, features=FEATURES):
     """Entrena el modelo final con todo train y el número de árboles ya elegido."""
     import xgboost as xgb
 
     base = {k: v for k, v in PARAM_BASE.items() if k not in ("n_estimators", "early_stopping_rounds")}
     modelo = xgb.XGBRegressor(**{**base, "n_estimators": n_arboles, **params})
-    modelo.fit(train[FEATURES], train[TARGET], verbose=False)
+    modelo.fit(train[features], train[TARGET], verbose=False)
     return modelo
 
 
