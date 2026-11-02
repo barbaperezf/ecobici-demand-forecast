@@ -20,3 +20,6 @@ Mining_Process.pdf
 Machine_Learnig_Review.pdf
 Introduction.pdf
 Neural_Networks.pdf
+
+# Corridas rápidas de prueba del notebook de modelo (no son resultados finales)
+data/processed/*_rapido.csv

@@ -11,8 +11,30 @@ supervisada**: la variable objetivo son las *salidas por estación y hora*.
 | Ingesta y limpieza de viajes | Listo (`src/ingest.py`) |
 | Catálogo de estaciones y capa geográfica | Listo (`src/stations.py`, `src/geo.py`) |
 | EDA (nulos, outliers, hora, semana/finde, top, flujo neto, geografía, red) | Listo (notebooks `00` y `01`, `figures/`) |
-| Modelo: 3 referencias simples, regresión lineal, MLP y XGBoost, con hiperparámetros y métricas | Código listo (`src/modelo.py`, `notebooks/02_modelo.ipynb`); falta la corrida final con `RAPIDO = False` |
-| Conclusiones y discusión con resultados reales | Pendiente (depende del modelo) |
+| Modelo v1: 3 referencias simples, regresión lineal, MLP y XGBoost, con hiperparámetros y métricas | Listo y corrido (`src/modelo.py`, `notebooks/02_modelo.ipynb`) |
+| Modelo v2: calendario escolar y clima por hora | Listo (`notebooks/03_modelo_v2.ipynb`); no mejora el RMSE |
+| Horizonte de 1 día y validación en ventanas | Notebook listo (`notebooks/04_horizonte_y_ventanas.ipynb`) |
+| Prueba con 1 año de datos (José Luis) | Listo (`notebooks/05_modelo_JL_anio.ipynb`, `figures/anio/`); no mejora |
+| Conclusiones y discusión | En preparación para la 2.ª presentación (4 nov) |
+
+## Resultados del modelo (v1, periodo de prueba 28 jul – 31 ago)
+
+Predicción de salidas por estación-hora. Entrenamiento: 10 mar – 27 jul (2,275,296 filas); prueba: 28 jul – 31 ago (567,072 filas).
+
+| Modelo | RMSE | MAE | Sesgo | Mejora de RMSE vs promedio histórico |
+| --- | --- | --- | --- | --- |
+| XGBoost (Poisson) | 2.370 | 1.383 | +0.060 | 7.4 % |
+| MLP (64-32, ReLU) | 2.419 | 1.396 | +0.040 | 5.5 % |
+| Regresión lineal | 2.453 | 1.466 | +0.043 | 4.2 % |
+| Media de las últimas 4 semanas | 2.494 | 1.449 | −0.028 | 2.6 % |
+| Promedio histórico (referencia) | 2.559 | 1.448 | +0.171 | — |
+| Igual que la semana pasada | 3.055 | 1.747 | −0.019 | −19.4 % |
+
+- Ningún modelo se sobreajusta: el error de entrenamiento es igual o mayor al de prueba.
+- La variable más importante es `media_4sem`, seguida de `hora` y `lag_7d`.
+- La estación con más error es `271-272` (RMSE 13.8) y por alcaldía Cuauhtémoc (RMSE 2.93). Las noches (19–23 h) se sobrepredicen.
+- **v2 (calendario + clima):** RMSE 2.393 contra 2.370 de v1; baja un poco el MAE y el sesgo, pero no mejora el RMSE.
+- **Un año de datos (`05`):** con la misma prueba, XGBoost queda en 2.395 (v1: 2.370); más historia no ayuda y el orden de los modelos no cambia.
 
 ## Datos
 
@@ -54,12 +76,15 @@ ecobici-demand-forecast/
 ├── notebooks/
 │   ├── 00_template_eda.ipynb   <- EDA general; punto de partida para copiar
 │   ├── 01_eda_JL_geo.ipynb     <- EDA geográfico (mapas por CP y alcaldía)
-│   └── 02_modelo.ipynb         <- compara 6 modelos: métricas, sobreajuste, error por hora/alcaldía/estación
+│   ├── 02_modelo.ipynb         <- v1: compara 6 modelos: métricas, sobreajuste, error por hora/alcaldía/estación
+│   ├── 03_modelo_v2.ipynb      <- v2: agrega calendario escolar y clima por hora
+│   ├── 04_horizonte_y_ventanas.ipynb <- predicción a 1 día y validación en 3 ventanas de prueba
+│   └── 05_modelo_JL_anio.ipynb <- prueba de José Luis con 1 año de datos (sep 2025 – ago 2026)
 ├── src/
 │   ├── ingest.py        <- une los CSVs crudos en trips_clean.parquet
 │   ├── stations.py      <- descarga GBFS y cruza station_id <-> lat/lon
 │   ├── eda_utils.py     <- funciones reusables de limpieza/gráficas (load_stations_ce: catálogo con la llave de los viajes)
-│   ├── modelo.py        <- tabla estación-hora con rezagos, partición por fechas, baselines, regresión lineal, MLP y XGBoost
+│   ├── modelo.py        <- tabla estación-hora con rezagos, calendario y clima, partición por fechas, baselines, regresión lineal, MLP y XGBoost
 │   ├── make_figures.py  <- genera figures/01 a 06 (duración, top estaciones, hora, semana/finde, flujo neto, curva)
 │   ├── make_network.py  <- genera figures/07 (grafo de flujos entre estaciones)
 │   ├── map_real_vs_pred.py <- mapa de bicis reales vs demanda esperada (hoy con predicción provisional)
@@ -108,11 +133,16 @@ Desde la raíz del repo, con el venv activo:
    Cada persona trabaja en su propia copia (`notebooks/eda_<nombre>.ipynb`).
 
 6. Modelo: ejecutar `notebooks/02_modelo.ipynb` (Restart & Run All).
-   - Con `RAPIDO = True` (por defecto) hace una corrida corta para validar; los
-     resultados se guardan con sufijo `_rapido`.
-   - Con `RAPIDO = False` hace la corrida final: genera `figures/08` a `11` y
+   - Con `RAPIDO = True` hace una corrida corta para validar; los resultados se
+     guardan con sufijo `_rapido` (esos archivos no se versionan).
+   - Con `RAPIDO = False` (valor actual) hace la corrida final: genera `figures/08` a `11` y
      `data/processed/resultados_modelo.csv`, `sobreajuste_modelo.csv` y
      `busqueda_hiperparametros.csv`.
+   - `03_modelo_v2.ipynb` genera `figures/12` y `13` y `resultados_modelo_v2.csv`.
+     Descarga el clima de Open-Meteo una sola vez y lo guarda en
+     `data/processed/clima_cdmx_hora.csv` (ya está en el repo, no hace falta internet).
+   - `04_horizonte_y_ventanas.ipynb` genera `figures/14` a `16`.
+   - `05_modelo_JL_anio.ipynb` usa `figures/anio/` y los CSV `*_anio.csv`.
 
 7. Mapa real vs predicción (provisional): `python src/map_real_vs_pred.py`
    guarda `figures/mapa_real_vs_prediccion.html`.
@@ -134,6 +164,8 @@ Desde la raíz del repo, con el venv activo:
 Variables del modelo (`src/modelo.py`, una fila por estación-fecha-hora): `salidas` (objetivo),
 `estacion`, `cp`, `alcaldia`, `hora`, `dia_semana`, `es_fin_de_semana`, `lat`, `lon`, `capacidad`,
 y tres de contexto reciente con 7 días o más de rezago: `lag_7d`, `media_4sem` y `nivel_semana`.
+La versión 2 suma `vacaciones_sep`, `es_festivo`, `lluvia_mm` y `temperatura`; el horizonte de 1 día
+suma `lag_1d` y `nivel_ayer`.
 
 ## Reglas del repo (para no pisarse el trabajo)
 
