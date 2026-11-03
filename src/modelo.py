@@ -16,6 +16,8 @@ festivos) con agregar_calendario() y clima por hora con agregar_clima().
 Horizonte de 1 día y validación en ventanas (notebooks/04_horizonte_y_ventanas.ipynb):
 agregar_rezagos_1d() y ventanas_por_fechas().
 
+Validación mes por mes (notebooks/06_validacion_mensual.ipynb): ventanas_mensuales().
+
 Los ids de estación son el `ce` de los viajes (incluye pares como "271-272").
 """
 
@@ -27,6 +29,8 @@ import pandas as pd
 PROCESSED_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "processed")
 
 FECHA_INICIO = "2026-03-01"   # el periodo del proyecto; descarta viajes con fechas raras
+FECHA_FIN = "2026-08-31"      # último día del periodo del proyecto (None = sin límite); evita que meses
+                              # posteriores que haya en el parquet (sep 2026) cambien los resultados de 02 a 05
 FEATURES_CAT = ["estacion", "cp", "alcaldia"]
 FEATURES_REZAGO = ["lag_7d", "media_4sem", "nivel_semana"]
 FEATURES_NUM = ["hora", "dia_semana", "es_fin_de_semana", "lat", "lon", "capacidad"] + FEATURES_REZAGO
@@ -55,6 +59,8 @@ def cargar_validos() -> pd.DataFrame:
     )
     ok = (trips["duracion_min"] >= 1) & (trips["duracion_min"] <= 45)
     ok &= trips["origen_dt"] >= FECHA_INICIO
+    if FECHA_FIN:
+        ok &= trips["origen_dt"] < pd.Timestamp(FECHA_FIN) + pd.Timedelta(days=1)
     ok &= trips["estacion_origen"].notna()
     return trips.loc[ok].reset_index(drop=True)
 
@@ -221,6 +227,28 @@ def ventanas_por_fechas(tabla: pd.DataFrame, n: int = 3, dias: int = 35):
         train = tabla[tabla["fecha"] < ini]
         test = tabla[(tabla["fecha"] >= ini) & (tabla["fecha"] <= fin)]
         res.append((train, test, pd.Timestamp(ini), pd.Timestamp(fin)))
+    return res
+
+
+def ventanas_mensuales(tabla: pd.DataFrame, desde: str = "2026-03-01", min_dias_train: int = 42):
+    """Validación mes por mes (walk-forward): cada mes calendario completo es una ventana de prueba.
+
+    Cada mes entrena con todos los días anteriores. Solo se usan los meses que empiezan en `desde`
+    o después y que tienen al menos `min_dias_train` días de entrenamiento antes de ellos.
+    Regresa una lista de (train, test, inicio, fin), igual que ventanas_por_fechas().
+    """
+    fechas = pd.DatetimeIndex(np.sort(tabla["fecha"].unique()))
+    meses = pd.Series(fechas.to_period("M")).unique()
+    res = []
+    for m in meses:
+        ini, fin = m.start_time, m.end_time.normalize()
+        if ini < pd.Timestamp(desde) or fin > fechas.max():
+            continue   # mes anterior a `desde` o incompleto
+        if (fechas < ini).sum() < min_dias_train:
+            continue   # muy poca historia para entrenar
+        train = tabla[tabla["fecha"] < ini]
+        test = tabla[(tabla["fecha"] >= ini) & (tabla["fecha"] <= fin)]
+        res.append((train, test, ini, fin))
     return res
 
 

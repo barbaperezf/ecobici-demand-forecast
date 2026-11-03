@@ -14,6 +14,7 @@ supervisada**: la variable objetivo son las *salidas por estación y hora*.
 | Modelo v1: 3 referencias simples, regresión lineal, MLP y XGBoost, con hiperparámetros y métricas | Listo y corrido (`src/modelo.py`, `notebooks/02_modelo.ipynb`) |
 | Modelo v2: calendario escolar y clima por hora | Listo (`notebooks/03_modelo_v2.ipynb`); no mejora el RMSE |
 | Horizonte de 1 día y validación en ventanas | Notebook listo (`notebooks/04_horizonte_y_ventanas.ipynb`) |
+| Validación mes por mes (mar–sep 2026) | Listo (`notebooks/06_validacion_mensual.ipynb`); XGBoost gana los 7 meses |
 | Prueba con 1 año de datos (José Luis) | Listo (`notebooks/05_modelo_JL_anio.ipynb`, `figures/anio/`); no mejora |
 | Conclusiones y discusión | En preparación para la 2.ª presentación (4 nov) |
 
@@ -34,6 +35,7 @@ Predicción de salidas por estación-hora. Entrenamiento: 10 mar – 27 jul (2,2
 - La variable más importante es `media_4sem`, seguida de `hora` y `lag_7d`.
 - La estación con más error es `271-272` (RMSE 13.8) y por alcaldía Cuauhtémoc (RMSE 2.93). Las noches (19–23 h) se sobrepredicen.
 - **v2 (calendario + clima):** RMSE 2.393 contra 2.370 de v1; baja un poco el MAE y el sesgo, pero no mejora el RMSE.
+- **Mes por mes (`06`, mar–sep 2026):** XGBoost tiene el menor RMSE y MAE en los 7 meses; mejora entre 2.4 % (abril) y 8.9 % (agosto) sobre el promedio histórico, 4.6 % en promedio (RMSE promedio 2.475 contra 2.594). El mes más difícil es junio (todos los modelos sobrepredecen). Limitación: los hiperparámetros se eligieron con datos de jun–jul 2026.
 - **Un año de datos (`05`):** con la misma prueba, XGBoost queda en 2.395 (v1: 2.370); más historia no ayuda y el orden de los modelos no cambia.
 
 ## Datos
@@ -47,6 +49,7 @@ Predicción de salidas por estación-hora. Entrenamiento: 10 mar – 27 jul (2,2
   de 45 min y 1,129 de menos de 1 min.
 - **Fechas fuera de periodo:** 3 viajes tienen fecha de 2022 a 2024 con
   duraciones de cientos de miles de minutos; el filtro de duración los elimina.
+- **Meses adicionales:** `05` y `06` usan también septiembre 2025 – febrero 2026; `06` además usa septiembre 2026 (13 CSV en total, 20.3 millones de viajes). Las cifras de arriba son del periodo mar–ago 2026.
 - **Estaciones sin id:** solo 722 retiros (0.008 %) y 821 arribos (0.009 %),
   todos `Temporal 1` a `Temporal 4`, que no están en el catálogo.
 
@@ -79,7 +82,8 @@ ecobici-demand-forecast/
 │   ├── 02_modelo.ipynb         <- v1: compara 6 modelos: métricas, sobreajuste, error por hora/alcaldía/estación
 │   ├── 03_modelo_v2.ipynb      <- v2: agrega calendario escolar y clima por hora
 │   ├── 04_horizonte_y_ventanas.ipynb <- predicción a 1 día y validación en 3 ventanas de prueba
-│   └── 05_modelo_JL_anio.ipynb <- prueba de José Luis con 1 año de datos (sep 2025 – ago 2026)
+│   ├── 05_modelo_JL_anio.ipynb <- prueba de José Luis con 1 año de datos (sep 2025 – ago 2026)
+│   └── 06_validacion_mensual.ipynb <- XGBoost v1 evaluado mes por mes (cada mes entrena con todo lo anterior)
 ├── src/
 │   ├── ingest.py        <- une los CSVs crudos en trips_clean.parquet
 │   ├── stations.py      <- descarga GBFS y cruza station_id <-> lat/lon
@@ -142,6 +146,8 @@ Desde la raíz del repo, con el venv activo:
      Descarga el clima de Open-Meteo una sola vez y lo guarda en
      `data/processed/clima_cdmx_hora.csv` (ya está en el repo, no hace falta internet).
    - `04_horizonte_y_ventanas.ipynb` genera `figures/14` a `16`.
+   - Para que `02` a `05` no cambien al tener más meses en el parquet, `modelo.py` corta en `FECHA_FIN = "2026-08-31"`; el `06` la cambia a septiembre.
+   - `06_validacion_mensual.ipynb` genera `figures/17` y `18` y `resultados_mensual.csv`. Con solo mar–ago 2026 evalúa mayo a agosto; si el parquet también tiene sep 2025 – feb 2026, evalúa marzo a agosto.
    - `05_modelo_JL_anio.ipynb` usa `figures/anio/` y los CSV `*_anio.csv`.
 
 7. Mapa real vs predicción (provisional): `python src/map_real_vs_pred.py`
