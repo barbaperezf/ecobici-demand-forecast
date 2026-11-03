@@ -1,0 +1,5 @@
+subsample,objective,min_child_weight,max_depth,learning_rate,colsample_bytree,mejor_iteracion,RMSE,MAE,Sesgo
+0.6,reg:squarederror,1,10,0.2,0.6,22,2.4599,1.4451,0.143
+1.0,reg:squarederror,20,10,0.2,1.0,33,2.4612,1.4359,0.1626
+0.6,count:poisson,1,4,0.1,0.8,1000,2.462,1.4337,0.1069
+0.6,reg:squarederror,20,6,0.05,0.6,328,2.464,1.4453,0.1212

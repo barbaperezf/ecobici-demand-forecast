@@ -13,3 +13,13 @@ __pycache__/
 
 # Sistema
 .DS_Store
+
+# Material de la clase (slides del profesor, temario): solo local, no se sube a GitHub
+docs/class/
+Mining_Process.pdf
+Machine_Learnig_Review.pdf
+Introduction.pdf
+Neural_Networks.pdf
+
+# Corridas rápidas de prueba del notebook de modelo (no son resultados finales)
+data/processed/*_rapido.csv

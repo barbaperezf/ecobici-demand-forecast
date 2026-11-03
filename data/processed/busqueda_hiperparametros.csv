@@ -1,0 +1,13 @@
+subsample,objective,min_child_weight,max_depth,learning_rate,colsample_bytree,mejor_iteracion,RMSE,MAE,Sesgo
+1.0,count:poisson,20,8,0.1,0.8,374,2.4397,1.4194,0.1449
+1.0,count:poisson,1,10,0.03,1.0,711,2.4444,1.4257,0.1656
+0.6,reg:squarederror,1,10,0.1,0.6,52,2.4496,1.439,0.1386
+0.6,count:poisson,20,6,0.05,0.8,1000,2.452,1.4278,0.1216
+0.8,count:poisson,1,10,0.1,1.0,208,2.4529,1.4285,0.161
+0.8,reg:squarederror,20,8,0.03,1.0,359,2.4551,1.4339,0.1457
+0.6,count:poisson,1,6,0.03,0.8,1000,2.4613,1.433,0.097
+1.0,count:poisson,1,6,0.03,0.6,1000,2.4617,1.4317,0.0933
+1.0,count:poisson,20,4,0.03,1.0,1000,2.4788,1.4405,0.0565
+1.0,count:poisson,5,4,0.03,0.8,1000,2.4844,1.4438,0.0537
+0.6,reg:squarederror,1,4,0.1,1.0,244,2.4858,1.4586,0.0821
+0.8,count:poisson,5,4,0.03,0.8,1000,2.4859,1.446,0.0571

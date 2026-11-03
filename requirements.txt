@@ -6,3 +6,5 @@ requests>=2.31
 pyarrow>=14.0
 jupyter>=1.0
 folium>=0.15
+xgboost>=2.0
+scikit-learn>=1.3

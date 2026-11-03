@@ -23,6 +23,20 @@ def load_stations() -> pd.DataFrame:
     return pd.read_csv(path, dtype={"station_id": "string"})
 
 
+def load_stations_ce() -> pd.DataFrame:
+    """Catálogo de estaciones con la llave de los VIAJES.
+
+    Los ids de estación en los viajes son el número CE (columna `ce` de
+    stations_geo.csv), NO el station_id del feed GBFS. Esta función regresa
+    station_id = ce (texto) + nombre, lat, lon, para poder hacer
+    `stations.set_index("station_id")` directo con estacion_origen/destino.
+    Incluye las estaciones pareadas (ej. "271-272").
+    """
+    geo = pd.read_csv(os.path.join(PROCESSED_DIR, "stations_geo.csv"), dtype={"ce": "string"})
+    out = geo[["ce", "nombre", "lat", "lon", "capacidad"]].rename(columns={"ce": "station_id"})
+    return out.drop_duplicates("station_id")
+
+
 def load_status_snapshot() -> pd.DataFrame:
     path = os.path.join(PROCESSED_DIR, "station_status_snapshot.csv")
     return pd.read_csv(path, dtype={"station_id": "string"})

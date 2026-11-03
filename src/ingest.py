@@ -104,10 +104,11 @@ def build_dataset() -> pd.DataFrame:
     df["es_fin_de_semana"] = df["origen_dt"].dt.dayofweek >= 5
 
     # ids de estación: la mayoría de los "no numéricos" son estaciones pareadas
-    # reales (ej. "271-272", confirmado contra el catálogo GBFS: ambos números
-    # existen como estaciones activas). Se clasifican en vez de solo borrarse,
-    # para poder excluirlas del análisis por-estación sin perder el viaje del
-    # análisis agregado (por hora/día).
+    # (ej. "271-272"). Cada par es UNA sola estación real del catálogo cuyo id
+    # `ce` es el texto completo "271-272" (ver stations_geo.csv); ninguno de los
+    # dos números existe por separado. Por eso el id pareado se CONSERVA como
+    # texto. Solo los "Temporal N" (que no están en el catálogo) y otros valores
+    # no numéricos quedan vacíos; todos se clasifican en estacion_*_tipo.
     import re
     patron_par = re.compile(r"^\d+-\d+$")
     patron_temporal = re.compile(r"^temporal", re.IGNORECASE)
@@ -129,7 +130,12 @@ def build_dataset() -> pd.DataFrame:
         n_otro = (df[tipo_col] == "otro_no_numerico").sum()
         print(f"  {col}: {n_par} pares de estaciones, {n_temp} temporales, {n_otro} otros no numéricos")
 
-        df[col] = numeric.astype("Int64").astype("string")
+        # id final: número entero como texto; los pares se conservan tal cual
+        # ("271-272"); temporales y otros no numéricos quedan vacíos (NA).
+        id_final = numeric.astype("Int64").astype("string")
+        es_par = df[tipo_col] == "par_estaciones"
+        id_final = id_final.mask(es_par, raw_str.str.strip())
+        df[col] = id_final
     return df
 
 

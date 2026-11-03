@@ -1,6 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
+
+from eda_utils import load_stations_ce
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.patches import FancyArrowPatch
@@ -54,7 +56,8 @@ NODE_SIZE_MAX = 1200
 
 def load_data():
     trips = pd.read_parquet(os.path.join(PROCESSED_DIR, "trips_clean.parquet"))
-    stations = pd.read_csv(os.path.join(PROCESSED_DIR, "stations.csv"), dtype={"station_id": "string"})
+    # OJO: los viajes usan el id `ce`, no el station_id de GBFS (ver eda_utils.load_stations_ce)
+    stations = load_stations_ce()
     validos = trips[(trips["duracion_min"] >= 1) & (trips["duracion_min"] <= 45)].copy()
     return validos, stations
 
@@ -147,7 +150,7 @@ def fig_red_estaciones(validos: pd.DataFrame, stations: pd.DataFrame):
     coords = coords[coords.index.isin(estaciones_top)]
     faltantes = set(estaciones_top) - set(coords.index)
     if faltantes:
-        print(f"  aviso: {len(faltantes)} estación(es) sin coordenadas en stations.csv, se omiten del grafo")
+        print(f"  aviso: {len(faltantes)} estación(es) sin coordenadas en stations_geo.csv, se omiten del grafo")
 
     # Paso 2: de todos los pares posibles, sólo calculamos/filtramos flujo
     # entre estaciones que ya quedaron seleccionadas como nodos.

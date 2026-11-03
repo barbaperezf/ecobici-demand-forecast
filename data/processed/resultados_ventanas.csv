@@ -1,0 +1,19 @@
+ventana,modelo,RMSE,MAE,Sesgo
+1: 19 May – 22 Jun,Promedio histórico,2.5887,1.5217,0.0281
+1: 19 May – 22 Jun,Media 4 semanas,2.6666,1.5741,0.076
+1: 19 May – 22 Jun,Ayer (misma hora),3.7135,2.0911,0.0173
+1: 19 May – 22 Jun,XGBoost v1 (7 días),2.5293,1.4957,0.0429
+1: 19 May – 22 Jun,XGBoost v2 (7 días + calendario + clima),2.5481,1.4976,0.0165
+1: 19 May – 22 Jun,XGBoost 1 día,2.5287,1.4851,0.021
+2: 23 Jun – 27 Jul,Promedio histórico,2.5915,1.4965,0.3106
+2: 23 Jun – 27 Jul,Media 4 semanas,2.6524,1.5288,0.0872
+2: 23 Jun – 27 Jul,Ayer (misma hora),3.6043,1.994,0.0021
+2: 23 Jun – 27 Jul,XGBoost v1 (7 días),2.4809,1.4439,0.2016
+2: 23 Jun – 27 Jul,XGBoost v2 (7 días + calendario + clima),2.4891,1.4328,0.0394
+2: 23 Jun – 27 Jul,XGBoost 1 día,2.4567,1.4261,0.1201
+3: 28 Jul – 31 Aug,Promedio histórico,2.5592,1.4479,0.1713
+3: 28 Jul – 31 Aug,Media 4 semanas,2.4938,1.4493,-0.0281
+3: 28 Jul – 31 Aug,Ayer (misma hora),3.6274,1.9675,-0.0049
+3: 28 Jul – 31 Aug,XGBoost v1 (7 días),2.3696,1.3827,0.0599
+3: 28 Jul – 31 Aug,XGBoost v2 (7 días + calendario + clima),2.3929,1.3784,-0.056
+3: 28 Jul – 31 Aug,XGBoost 1 día,2.3541,1.3725,0.0374

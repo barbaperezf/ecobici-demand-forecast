@@ -50,10 +50,18 @@ def build_map(hora: int = None) -> folium.Map:
         hora = dt.datetime.now().hour
 
     pred = predecir_demanda_placeholder(trips, hora)
-    pred = pred.rename(columns={"estacion_origen": "station_id"})
+    # La predicción está indexada por id de viaje (`ce`); el estado en vivo y
+    # el catálogo GBFS por station_id. Se unen vía stations_geo.csv (ce <-> station_id).
+    pred = pred.rename(columns={"estacion_origen": "ce"})
+    geo = pd.read_csv(
+        os.path.join(PROCESSED_DIR, "stations_geo.csv"),
+        dtype={"station_id": "string", "ce": "string"},
+    )[["station_id", "ce"]]
 
-    df = stations.merge(status, on="station_id", how="left").merge(
-        pred, on="station_id", how="left"
+    df = (
+        stations.merge(status, on="station_id", how="left")
+        .merge(geo, on="station_id", how="left")
+        .merge(pred, on="ce", how="left")
     )
 
     center_lat, center_lon = df["lat"].mean(), df["lon"].mean()

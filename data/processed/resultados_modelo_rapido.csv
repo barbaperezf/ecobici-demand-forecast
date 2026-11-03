@@ -1,0 +1,7 @@
+,RMSE,MAE,Sesgo,Mejora RMSE vs promedio histórico,Mejora MAE vs promedio histórico
+XGBoost,2.3979,1.4087,0.0633,0.063,0.0271
+MLP,2.3992,1.4015,-0.0091,0.0625,0.032
+Regresión lineal,2.4526,1.4663,0.0428,0.0417,-0.0127
+Media 4 semanas,2.4938,1.4493,-0.0281,0.0256,-0.001
+Promedio histórico,2.5592,1.4479,0.1713,0.0,0.0
+Semana pasada,3.0551,1.7474,-0.0189,-0.1938,-0.2069

@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import pandas as pd
 
+from eda_utils import load_stations_ce
+
 PROCESSED_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "processed")
 FIGURES_DIR = os.path.join(os.path.dirname(__file__), "..", "figures")
 
@@ -67,7 +69,8 @@ def _savefig(fig, path):
 
 def load_data():
     trips = pd.read_parquet(os.path.join(PROCESSED_DIR, "trips_clean.parquet"))
-    stations = pd.read_csv(os.path.join(PROCESSED_DIR, "stations.csv"), dtype={"station_id": "string"})
+    # OJO: los viajes usan el id `ce`, no el station_id de GBFS (ver eda_utils.load_stations_ce)
+    stations = load_stations_ce()
     validos = trips[(trips["duracion_min"] >= 1) & (trips["duracion_min"] <= 45)]
     return trips, stations, validos
 

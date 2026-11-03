@@ -1,0 +1,4 @@
+,RMSE train,RMSE prueba,Diferencia
+Regresión lineal,2.6454,2.4526,-0.1928
+MLP,2.4862,2.4194,-0.0668
+XGBoost,2.3852,2.3696,-0.0156
